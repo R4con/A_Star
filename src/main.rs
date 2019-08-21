@@ -1,6 +1,6 @@
 /*
     This Program should simulate a A* pathfinding algorithem.
-    Made By Lukas Möller (aka. Racon)
+    Made By Racon
     06.08.2019
 
     ! UNFINISHED
