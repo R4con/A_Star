@@ -229,14 +229,19 @@ fn main() {
     //todo better input interface
     //--------------------  
     const MAP: &[&[bool]] = &[
-        &[false,false,false,false,false],
-        &[false,true,false,false,false],
-        &[false,true,false,true,true],
-        &[false,true,false,false,false],
-        &[false,false,false,false,false],
+        &[false,true,false,true,false,false,false,false,false,false],
+        &[false,true,false,true,false,false,false,false,true,false],
+        &[false,false,false,false,false,true,false,false,true,false],
+        &[false,false,false,false,false,true,false,false,false,false],
+        &[true,false,false,false,false,true,true,false,false,false],
+        &[false,true,false,true,true,true,false,false,false,false],
+        &[false,false,false,true,false,false,false,true,true,true],
+        &[false,true,false,true,true,true,false,true,false,false],
+        &[true,true,false,false,false,true,false,false,false,false],
+        &[false,false,false,false,false,true,false,true,false,false],
     ];
     let start_node:  Node = Node::new(0, 0, 0);
-    let target_node: Node = Node::new(4, 4, 0);
+    let target_node: Node = Node::new(9, 9, 0);
     //--------------------
 
     //init open list with neighbours from the starting node
@@ -250,18 +255,26 @@ fn main() {
     //* OUTPUT:
     for (y, map_slice) in MAP.iter().enumerate() {
         for (x, &tile) in map_slice.iter().enumerate() {
-            if match closed_list.get(&(x as i32, y as i32)) {Some(_x) => true, None => false,} {
-                print!("| X ")
+            if final_path.contains(&(x as i32,y as i32)) {
+                print!("| # ");
+            }
+            else if match closed_list.get(&(x as i32, y as i32)) {Some(_x) => true, None => false,} {
+                print!("| X ");
             }
             else {
-                print!("| {} ", tile as i8);
+                if tile {
+                    print!("| O ");
+                }
+                else {
+                    print!("| * ");
+                }
             }   
         }
         println!("");
     }
 
     println!("Final Path:");
-    for &item in final_path.iter() {
+    for (i, &item) in final_path.iter().enumerate() {
         println!("{}:{}", item.0, item.1);
     }
 }
