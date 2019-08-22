@@ -32,11 +32,11 @@ impl Node {
     }
 
     fn update_f_cost(&mut self, end_node: &Node) {
-        let dis_x = self.x - end_node.x;
-        let dis_y = self.y - end_node.y;
-        let smallest = if dis_x < dis_y { dis_x.abs() } else { dis_y.abs() };
+        let dis_x = (self.x - end_node.x).abs();
+        let dis_y = (self.y - end_node.y).abs();
+        let smallest = if dis_x < dis_y { dis_x } else { dis_y };
 
-        let new_h_cost =  14 * smallest + 10 * (dis_x.abs() - smallest + dis_y.abs() - smallest);
+        let new_h_cost =  14 * smallest + 10 * (dis_x - smallest + dis_y - smallest);
 
         if self.f_cost > new_h_cost + self.g_cost {
             self.f_cost = new_h_cost + self.g_cost;
@@ -44,7 +44,7 @@ impl Node {
         }
     }
 
-    fn get_new_f_cost(end_node: &Node, new_node: &Node) -> i32 {
+    fn get_new_h_cost(end_node: &Node, new_node: &Node) -> i32 {
         let dis_x = new_node.x - end_node.x;
         let dis_y = new_node.y - end_node.y;
         let smallest = if dis_x < dis_y { dis_x.abs() } else { dis_y.abs() };
@@ -62,6 +62,13 @@ impl Node {
             if value.f_cost < lowest_node.f_cost {
                 lowest_node = value;
                 lowest_key = key;
+                continue;
+            }
+            if value.f_cost == lowest_node.f_cost {
+                if value.h_cost < lowest_node.h_cost {
+                    lowest_node = value;
+                    lowest_key = key;
+                }
             }
         }
 
@@ -78,7 +85,10 @@ impl Node {
         }
 
         let mut closed_list = HashMap::new();
-        closed_list.insert((start_node.x, start_node.y), start_node.clone());
+
+        let mut tmp_node = start_node.clone();
+        tmp_node.update_f_cost(&target_node);
+        closed_list.insert((start_node.x, start_node.y), tmp_node);
         
         loop { 
             let current_node = open_list.remove( &Node::get_lowest(&open_list) ).expect("could not remove lowest value");
@@ -86,19 +96,15 @@ impl Node {
 
             //check for end condition:
             if current_node.x == target_node.x && current_node.y == target_node.y {
-                print!("Shoutest path has been found!");
+                println!("Shoutest path has been found!");
                 break;
             }
 
-            if open_list.is_empty() {
-                println!("No Path !");
-                break;
-            }
-
-            
             //loop threw neighbours
             for &(x_off, y_off) in OFFSET.iter() {
                 let mut neighbour: Node;
+
+                //set g_cost of the neighboour
                 if x_off == 0 || y_off == 0 {
                     neighbour = Node::new(current_node.x + x_off, current_node.y + y_off, current_node.g_cost + 10);
                 }
@@ -106,22 +112,22 @@ impl Node {
                     neighbour = Node::new(current_node.x + x_off, current_node.y + y_off, current_node.g_cost + 14);
                 }
                 
-                /* if neighbour is not a valid tile */
-                if neighbour.x < 0 || neighbour.x >= x_size as i32 {
+                //if neighbour is not a valid tile
+                if neighbour.x < 0 || neighbour.x > x_size as i32 {
                     continue;
                 }
-                if neighbour.y < 0 || neighbour.y >= y_size as i32 {
+                if neighbour.y < 0 || neighbour.y > y_size as i32 {
                     continue;
                 }
-                if map[ (neighbour.x) as usize ][ (neighbour.y) as usize ] == true {
+                if map[ neighbour.y as usize ][ neighbour.x as usize ] == true {
                     continue;
                 }
-
-                neighbour.update_f_cost(&target_node);
+                if match closed_list.get(&(neighbour.x, neighbour.y)) {Some(_x) => true, None => false,} {
+                    continue;
+                }
                 
-                /* if new path to neighbour is shorter || neighbour is not in open_list */
-                if neighbour.f_cost > Node::get_new_f_cost(&target_node, &neighbour) || match open_list.get(&(neighbour.x, neighbour.y)) {Some(_x) => false, None => true,} {
-                    //!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Problem over here (is always true ??)
+                //if new path to neighbour is shorter || neighbour is not in open_list
+                if neighbour.f_cost > neighbour.g_cost + Node::get_new_h_cost(&target_node, &neighbour) || match open_list.get(&(neighbour.x, neighbour.y)) {Some(_x) => false, None => true,} {
                     neighbour.update_f_cost(&target_node);
                     
                     /* neighbour is not in open_list */
@@ -130,8 +136,12 @@ impl Node {
                     }
                 }
             }
-        }
 
+            //check if there is a possible move next turn
+            if open_list.is_empty() {
+                panic!("No Path !");
+            }
+        }
         closed_list
     }
 
@@ -156,13 +166,13 @@ impl Node {
                 neighbour = Node::new(start_node.x + x_off, start_node.y + y_off, 14);
             }
 
-            if neighbour.x < 0 || neighbour.x >= x_size as i32 {
+            if neighbour.x < 0 || neighbour.x > x_size as i32 {
                 continue;
             }
-            if neighbour.y < 0 || neighbour.y >= y_size as i32 {
+            if neighbour.y < 0 || neighbour.y > y_size as i32 {
                 continue;
             }
-            if map[ (start_node.x + x_off) as usize ][ (start_node.y + y_off) as usize ] == true {
+            if map[ neighbour.y as usize ][ neighbour.x as usize ] == true {
                 continue;
             }
 
@@ -171,9 +181,48 @@ impl Node {
             //add new node to open list
             open_list.insert((start_node.x + x_off, start_node.y + y_off), neighbour);
         }
-
         open_list
     }
+
+    fn get_path(start_node: &Node, target_node: &Node, closed_list: &HashMap<(i32, i32), Node>) -> Vec<(i32,i32)> {
+        const OFFSET: [(i32, i32); 8] = [(-1,-1), (0,-1), (1,-1), (-1,0), (1, 0), (-1,1), (0,1), (1,1)];
+        let mut path_list: Vec<(i32,i32)> = Vec::new();
+        let mut current_pos = (target_node.x, target_node.y);
+        let mut lowest: &Node = closed_list.get(&current_pos).expect("closed List did not contain target Node!");
+        
+        path_list.push(current_pos);
+
+        loop {
+            for &(x_off, y_off) in OFFSET.iter() {
+                let new_node: &Node;
+                new_node = match closed_list.get(&(current_pos.0 + x_off, current_pos.1 + y_off)){
+                    Some(v) => v,
+                    None => continue,
+                };
+
+                //check if new node is lower than last
+                if new_node.f_cost < lowest.f_cost {
+                    lowest = new_node;
+                    continue;
+                }
+                if new_node.f_cost == lowest.f_cost {
+                    if new_node.g_cost < lowest.g_cost {
+                        lowest = new_node;
+                    }
+                }
+            }
+
+            current_pos = (lowest.x, lowest.y);
+            path_list.push(current_pos);
+
+            if current_pos == (start_node.x, start_node.y) {
+                //path has been complete!
+                break;
+            }
+        }
+        path_list.reverse();
+        path_list
+    }   
 }
 
 fn main() {
@@ -181,9 +230,9 @@ fn main() {
     //--------------------  
     const MAP: &[&[bool]] = &[
         &[false,false,false,false,false],
-        &[false,false,false,false,false],
-        &[false,false,false,false,false],
-        &[false,false,false,false,false],
+        &[false,true,false,false,false],
+        &[false,true,false,true,true],
+        &[false,true,false,false,false],
         &[false,false,false,false,false],
     ];
     let start_node:  Node = Node::new(0, 0, 0);
@@ -192,22 +241,27 @@ fn main() {
 
     //init open list with neighbours from the starting node
     let mut open_list = Node::init_neighbours(&start_node, &target_node, MAP);
-    
+
     //cycle threw every neighbour, and go to the neighbour with lowest f_cost, until  target_node is reached //! return Option with Node, if no Path could be found
-    let closed_list = Node::loop_neighbours(&start_node, &target_node, MAP, &mut open_list);    
+    let closed_list = Node::loop_neighbours(&start_node, &target_node, MAP, &mut open_list);
+    
+    let final_path = Node::get_path(&start_node, &target_node, &closed_list);
 
-    //Print out the shortest path
-    println!("{:?}", closed_list);
-
+    //* OUTPUT:
     for (y, map_slice) in MAP.iter().enumerate() {
         for (x, &tile) in map_slice.iter().enumerate() {
-            if  match closed_list.get(&(x as i32, y as i32)) {Some(_x) => true, None => false,} {
-                print!("| X ");
+            if match closed_list.get(&(x as i32, y as i32)) {Some(_x) => true, None => false,} {
+                print!("| X ")
             }
             else {
                 print!("| {} ", tile as i8);
             }   
         }
         println!("");
+    }
+
+    println!("Final Path:");
+    for &item in final_path.iter() {
+        println!("{}:{}", item.0, item.1);
     }
 }
